@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Devis Maçon – Gestion de devis & factures</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .status-brouillon { @apply bg-gray-100 text-gray-700; }
+    .status-envoye { @apply bg-blue-100 text-blue-700; }
+    .status-accepte { @apply bg-green-100 text-green-700; }
+    .status-refuse { @apply bg-red-100 text-red-700; }
+    .status-facture { @apply bg-purple-100 text-purple-700; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .card { transition: all 0.15s ease; }
+    .card:active { transform: scale(0.98); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <!-- APP -->
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">🧱</span>
+          <div>
+            <h1 class="font-bold text-lg leading-tight" id="company-name-header">Mon Entreprise</h1>
+            <p class="text-xs text-slate-500">Devis & Factures</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="showSettings()" class="p-2 rounded-lg hover:bg-slate-100" title="Paramètres">
+            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-2 flex overflow-x-auto">
+        <button onclick="showPage('dashboard')" data-page="dashboard" class="nav-btn flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 border-orange-600 text-orange-600">Tableau de bord</button>
+        <button onclick="showPage('devis')" data-page="devis" class="nav-btn flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900">Devis</button>
+        <button onclick="showPage('factures')" data-page="factures" class="nav-btn flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900">Factures</button>
+        <button onclick="showPage('clients')" data-page="clients" class="nav-btn flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900">Clients</button>
+        <button onclick="showPage('prestations')" data-page="prestations" class="nav-btn flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900">Prestations</button>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="flex-1 max-w-6xl mx-auto w-full p-4 pb-24">
+      <!-- DASHBOARD -->
+      <div id="page-dashboard" class="page">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-500 font-medium">Devis en cours</p>
+            <p class="text-2xl font-bold text-slate-800 mt-1" id="stat-devis-en-cours">0</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-500 font-medium">Acceptés</p>
+            <p class="text-2xl font-bold text-green-600 mt-1" id="stat-acceptes">0</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-500 font-medium">Factures</p>
+            <p class="text-2xl font-bold text-purple-600 mt-1" id="stat-factures">0</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-500 font-medium">CA TTC (mois)</p>
+            <p class="text-2xl font-bold text-orange-600 mt-1" id="stat-ca">0 €</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">Derniers devis</h2>
+          <button onclick="openDevisModal()" class="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Nouveau devis</button>
+        </div>
+        <div id="dashboard-devis-list" class="space-y-2"></div>
+      </div>
+
+      <!-- DEVIS -->
+      <div id="page-devis" class="page hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">Tous les devis</h2>
+          <button onclick="openDevisModal()" class="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Nouveau</button>
+        </div>
+        <div class="mb-3">
+          <select id="filter-status" onchange="renderDevisList()" class="w-full md:w-auto px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <option value="">Tous les statuts</option>
+            <option value="brouillon">Brouillon</option>
+            <option value="envoye">Envoyé</option>
+            <option value="accepte">Accepté</option>
+            <option value="refuse">Refusé</option>
+            <option value="facture">Facturé</option>
+          </select>
+        </div>
+        <div id="devis-list" class="space-y-2"></div>
+      </div>
+
+      <!-- FACTURES -->
+      <div id="page-factures" class="page hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">Factures</h2>
+        </div>
+        <div id="factures-list" class="space-y-2"></div>
+      </div>
+
+      <!-- CLIENTS -->
+      <div id="page-clients" class="page hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">Clients</h2>
+          <button onclick="openClientModal()" class="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Client</button>
+        </div>
+        <div id="clients-list" class="space-y-2"></div>
+      </div>
+
+      <!-- PRESTATIONS -->
+      <div id="page-prestations" class="page hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">Catalogue prestations</h2>
+          <button onclick="openPrestationModal()" class="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Prestation</button>
+        </div>
+        <div id="prestations-list" class="space-y-2"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL DEVIS -->
+  <div id="modal-devis" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+    <div class="bg-white w-full md:max-w-3xl md:rounded-2xl rounded-t-2xl max-h-[95vh] overflow-y-auto">
+      <div class="sticky top-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between z-10">
+        <h3 class="font-bold text-lg" id="devis-modal-title">Nouveau devis</h3>
+        <button onclick="closeDevisModal()" class="p-2 hover:bg-slate-100 rounded-lg">✕</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <input type="hidden" id="devis-id">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Client *</label>
+            <select id="devis-client" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
+              <option value="">Sélectionner un client</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Date</label>
+            <input type="date" id="devis-date" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Objet / Chantier</label>
+          <input type="text" id="devis-objet" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Ex: Construction mur de clôture">
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-medium">Lignes de travaux</label>
+            <button type="button" onclick="addLigne()" class="text-sm text-orange-600 font-medium">+ Ajouter une ligne</button>
+          </div>
+          <div id="lignes-container" class="space-y-2"></div>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-4 space-y-1">
+          <div class="flex justify-between text-sm"><span>Total HT</span><span id="total-ht">0,00 €</span></div>
+          <div class="flex justify-between text-sm"><span>TVA 20 %</span><span id="total-tva">0,00 €</span></div>
+          <div class="flex justify-between font-bold text-lg"><span>Total TTC</span><span id="total-ttc">0,00 €</span></div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Notes / Conditions</label>
+          <textarea id="devis-notes" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Validité 30 jours, acompte 30%..."></textarea>
+        </div>
+        <div class="flex flex-wrap gap-2 pt-2">
+          <button type="button" onclick="previewPDF()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium py-3 rounded-xl border border-slate-300">👁 Aperçu PDF</button>
+          <button type="button" onclick="downloadCurrentPDF()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl">📄 Télécharger PDF</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="saveDevis('brouillon')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium py-3 rounded-xl">Enregistrer brouillon</button>
+          <button onclick="saveDevis('envoye')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl">Enregistrer & Envoyé</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CLIENT -->
+  <div id="modal-client" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+    <div class="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+      <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+        <h3 class="font-bold text-lg" id="client-modal-title">Nouveau client</h3>
+        <button onclick="closeClientModal()" class="p-2 hover:bg-slate-100 rounded-lg">✕</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <input type="hidden" id="client-id">
+        <div>
+          <label class="block text-sm font-medium mb-1">Nom / Raison sociale *</label>
+          <input type="text" id="client-nom" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Adresse</label>
+          <input type="text" id="client-adresse" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Code postal</label>
+            <input type="text" id="client-cp" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Ville</label>
+            <input type="text" id="client-ville" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Téléphone</label>
+          <input type="tel" id="client-tel" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Email</label>
+          <input type="email" id="client-email" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <button onclick="saveClient()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 rounded-xl mt-2">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PRESTATION -->
+  <div id="modal-prestation" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+    <div class="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl">
+      <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+        <h3 class="font-bold text-lg" id="prestation-modal-title">Nouvelle prestation</h3>
+        <button onclick="closePrestationModal()" class="p-2 hover:bg-slate-100 rounded-lg">✕</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <input type="hidden" id="prestation-id">
+        <div>
+          <label class="block text-sm font-medium mb-1">Désignation *</label>
+          <input type="text" id="prestation-nom" class="w-full px-3 py-2 border border-slate-300 rounded-lg" required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Unité</label>
+            <select id="prestation-unite" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+              <option value="m²">m²</option>
+              <option value="m³">m³</option>
+              <option value="ml">ml</option>
+              <option value="u">unité</option>
+              <option value="h">heure</option>
+              <option value="j">jour</option>
+              <option value="forfait">forfait</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Prix HT (€)</label>
+            <input type="number" id="prestation-prix" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <button onclick="savePrestation()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 rounded-xl mt-2">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SETTINGS -->
+  <div id="modal-settings" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end md:items-center justify-center p-0 md:p-4">
+    <div class="bg-white w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+      <div class="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+        <h3 class="font-bold text-lg">Paramètres entreprise</h3>
+        <button onclick="closeSettings()" class="p-2 hover:bg-slate-100 rounded-lg">✕</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">Nom de l'entreprise *</label>
+          <input type="text" id="set-nom" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Adresse</label>
+          <input type="text" id="set-adresse" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Code postal</label>
+            <input type="text" id="set-cp" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Ville</label>
+            <input type="text" id="set-ville" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">SIRET</label>
+          <input type="text" id="set-siret" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Téléphone</label>
+          <input type="tel" id="set-tel" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Email</label>
+          <input type="email" id="set-email" class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Couleur principale du PDF</label>
+          <div class="flex items-center gap-3">
+            <input type="color" id="set-couleur" value="#ea580c" class="w-12 h-10 rounded cursor-pointer border border-slate-300">
+            <span class="text-sm text-slate-500">Couleur des titres et en-têtes</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Logo (optionnel)</label>
+          <input type="file" id="set-logo" accept="image/*" class="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-orange-50 file:text-orange-700">
+          <div id="logo-preview" class="mt-2 hidden">
+            <img id="logo-img" class="h-16 object-contain border rounded-lg p-1 bg-white">
+            <button type="button" onclick="removeLogo()" class="text-xs text-red-600 mt-1">Supprimer le logo</button>
+          </div>
+        </div>
+        <button onclick="saveSettings()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 rounded-xl mt-2">Enregistrer les paramètres</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg z-50 hidden text-sm font-medium"></div>
+
+  <script>
+    // ==================== DATA & DB ====================
+    const DB_NAME = 'devisMaconDB';
+    const DB_VERSION = 1;
+    let db = null;
+
+    const DEFAULT_PRESTATIONS = [
+      { nom: 'Fondation béton armé', unite: 'm³', prix: 180 },
+      { nom: 'Dalle béton armé', unite: 'm²', prix: 65 },
+      { nom: 'Mur en parpaing 20cm', unite: 'm²', prix: 55 },
+      { nom: 'Mur en brique', unite: 'm²', prix: 70 },
+      { nom: 'Enduit monocouche', unite: 'm²', prix: 28 },
+      { nom: 'Enduit traditionnel 3 couches', unite: 'm²', prix: 42 },
+      { nom: 'Chape liquide', unite: 'm²', prix: 22 },
+      { nom: 'Ragréage', unite: 'm²', prix: 18 },
+      { nom: 'Pose de carrelage', unite: 'm²', prix: 35 },
+      { nom: 'Création ouverture (porte/fenêtre)', unite: 'u', prix: 450 },
+      { nom: 'Linteau béton', unite: 'ml', prix: 85 },
+      { nom: 'Chaînage horizontal', unite: 'ml', prix: 45 },
+      { nom: 'Main d\'œuvre maçon', unite: 'h', prix: 42 },
+      { nom: 'Location benne', unite: 'u', prix: 280 },
+      { nom: 'Forfait déplacement', unite: 'forfait', prix: 50 }
+    ];
+
+    const DEFAULT_SETTINGS = {
+      nom: 'Mon Entreprise de Maçonnerie',
+      adresse: '',
+      cp: '',
+      ville: '',
+      siret: '',
+      tel: '',
+      email: '',
+      couleur: '#ea580c',
+      logo: null
+    };
+
+    async function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains('clients')) {
+            database.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
+          }
+          if (!database.objectStoreNames.contains('prestations')) {
+            database.createObjectStore('prestations', { keyPath: 'id', autoIncrement: true });
+          }
+          if (!database.objectStoreNames.contains('devis')) {
+            const store = database.createObjectStore('devis', { keyPath: 'id', autoIncrement: true });
+            store.createIndex('status', 'status', { unique: false });
+            store.createIndex('clientId', 'clientId', { unique: false });
+          }
+          if (!database.objectStoreNames.contains('factures')) {
+            database.createObjectStore('factures', { keyPath: 'id', autoIncrement: true });
+          }
+          if (!database.objectStoreNames.contains('settings')) {
+            database.createObjectStore('settings', { keyPath: 'key' });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    function store(name) {
+      return db.transaction(name, 'readwrite').objectStore(name);
+    }
+
+    function getAll(storeName) {
+      return new Promise((resolve, reject) => {
+        const req = store(storeName).getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getById(storeName, id) {
+      return new Promise((resolve, reject) => {
+        const req = store(storeName).get(Number(id));
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function put(storeName, data) {
+      return new Promise((resolve, reject) => {
+        const req = store(storeName).put(data);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function remove(storeName, id) {
+      return new Promise((resolve, reject) => {
+        const req = store(storeName).delete(Number(id));
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // ==================== INIT ====================
+    async function initApp() {
+      await openDB();
+      // Seed prestations if empty
+      const prestations = await getAll('prestations');
+      if (prestations.length === 0) {
+        for (const p of DEFAULT_PRESTATIONS) {
+          await put('prestations', p);
+        }
+      }
+      // Seed settings
+      let settings = await getById('settings', 'company');
+      if (!settings) {
+        await put('settings', { key: 'company', ...DEFAULT_SETTINGS });
+        settings = { key: 'company', ...DEFAULT_SETTINGS };
+      }
+
+      // Afficher directement l'application
+      if (settings) {
+        document.getElementById('company-name-header').textContent = settings.nom || 'Mon Entreprise';
+      }
+      showPage('dashboard');
+      await refreshAll();
+    }
+
+    // ==================== NAVIGATION ====================
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+      document.getElementById('page-' + page).classList.remove('hidden');
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.dataset.page === page) {
+          btn.classList.add('border-orange-600', 'text-orange-600');
+          btn.classList.remove('border-transparent', 'text-slate-600');
+        } else {
+          btn.classList.remove('border-orange-600', 'text-orange-600');
+          btn.classList.add('border-transparent', 'text-slate-600');
+        }
+      });
+      if (page === 'dashboard') renderDashboard();
+      if (page === 'devis') renderDevisList();
+      if (page === 'factures') renderFacturesList();
+      if (page === 'clients') renderClientsList();
+      if (page === 'prestations') renderPrestationsList();
+    }
+
+    // ==================== HELPERS ====================
+    function formatEuro(n) {
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n || 0);
+    }
+
+    function formatDate(d) {
+      if (!d) return '';
+      return new Date(d).toLocaleDateString('fr-FR');
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 2500);
+    }
+
+    function statusBadge(status) {
+      const map = {
+        brouillon: ['Brouillon', 'bg-gray-100 text-gray-700'],
+        envoye: ['Envoyé', 'bg-blue-100 text-blue-700'],
+        accepte: ['Accepté', 'bg-green-100 text-green-700'],
+        refuse: ['Refusé', 'bg-red-100 text-red-700'],
+        facture: ['Facturé', 'bg-purple-100 text-purple-700']
+      };
+      const [label, cls] = map[status] || ['?', 'bg-gray-100'];
+      return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${cls}">${label}</span>`;
+    }
+
+    async function refreshAll() {
+      await renderDashboard();
+      await renderDevisList();
+      await renderFacturesList();
+      await renderClientsList();
+      await renderPrestationsList();
+    }
+
+    // ==================== DASHBOARD ====================
+    async function renderDashboard() {
+      const devis = await getAll('devis');
+      const factures = await getAll('factures');
+      const enCours = devis.filter(d => ['brouillon', 'envoye'].includes(d.status)).length;
+      const acceptes = devis.filter(d => d.status === 'accepte').length;
+      document.getElementById('stat-devis-en-cours').textContent = enCours;
+      document.getElementById('stat-acceptes').textContent = acceptes;
+      document.getElementById('stat-factures').textContent = factures.length;
+
+      const now = new Date();
+      const ca = factures
+        .filter(f => {
+          const d = new Date(f.date);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        })
+        .reduce((s, f) => s + (f.totalTTC || 0), 0);
+      document.getElementById('stat-ca').textContent = formatEuro(ca);
+
+      const recent = [...devis].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+      const clients = await getAll('clients');
+      const clientMap = Object.fromEntries(clients.map(c => [c.id, c.nom]));
+
+      const container = document.getElementById('dashboard-devis-list');
+      if (recent.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-center py-8">Aucun devis pour le moment.<br>Créez votre premier devis !</p>';
+        return;
+      }
+      container.innerHTML = recent.map(d => `
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between gap-3 card" onclick="editDevis(${d.id})">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="font-semibold truncate">${d.numero || 'D-' + d.id}</span>
+              ${statusBadge(d.status)}
+            </div>
+            <p class="text-sm text-slate-600 truncate">${clientMap[d.clientId] || 'Client'} · ${d.objet || ''}</p>
+            <p class="text-xs text-slate-400">${formatDate(d.date)}</p>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <p class="font-bold text-slate-800">${formatEuro(d.totalTTC)}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ==================== DEVIS ====================
+    let currentLignes = [];
+
+    async function renderDevisList() {
+      const filter = document.getElementById('filter-status')?.value || '';
+      let devis = await getAll('devis');
+      if (filter) devis = devis.filter(d => d.status === filter);
+      devis.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      const clients = await getAll('clients');
+      const clientMap = Object.fromEntries(clients.map(c => [c.id, c.nom]));
+
+      const container = document.getElementById('devis-list');
+      if (devis.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-center py-8">Aucun devis trouvé.</p>';
+        return;
+      }
+      container.innerHTML = devis.map(d => `
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1" onclick="editDevis(${d.id})">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="font-semibold">${d.numero || 'D-' + d.id}</span>
+                ${statusBadge(d.status)}
+              </div>
+              <p class="text-sm text-slate-600">${clientMap[d.clientId] || 'Client'} · ${d.objet || 'Sans objet'}</p>
+              <p class="text-xs text-slate-400">${formatDate(d.date)} · ${formatEuro(d.totalTTC)}</p>
+            </div>
+            <div class="flex flex-col gap-1 flex-shrink-0">
+              <button onclick="generatePDF(${d.id}, 'devis')" class="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded">PDF</button>
+              ${d.status === 'accepte' ? `<button onclick="convertToFacture(${d.id})" class="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded">→ Facture</button>` : ''}
+              ${d.status !== 'facture' ? `<button onclick="changeStatus(${d.id})" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded">Statut</button>` : ''}
+              <button onclick="deleteDevis(${d.id})" class="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">Suppr.</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function openDevisModal(id = null) {
+      document.getElementById('devis-id').value = id || '';
+      document.getElementById('devis-modal-title').textContent = id ? 'Modifier le devis' : 'Nouveau devis';
+      document.getElementById('devis-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('devis-objet').value = '';
+      document.getElementById('devis-notes').value = 'Validité du devis : 30 jours.\nAcompte de 30 % à la commande.';
+      currentLignes = [];
+      document.getElementById('lignes-container').innerHTML = '';
+
+      // Fill clients
+      const clients = await getAll('clients');
+      const select = document.getElementById('devis-client');
+      select.innerHTML = '<option value="">Sélectionner un client</option>' +
+        clients.map(c => `<option value="${c.id}">${c.nom}</option>`).join('');
+
+      if (id) {
+        const d = await getById('devis', id);
+        if (d) {
+          select.value = d.clientId;
+          document.getElementById('devis-date').value = d.date || '';
+          document.getElementById('devis-objet').value = d.objet || '';
+          document.getElementById('devis-notes').value = d.notes || '';
+          currentLignes = d.lignes || [];
+          currentLignes.forEach((l, i) => addLigne(l, i));
+        }
+      } else {
+        addLigne();
+      }
+      calcTotals();
+      document.getElementById('modal-devis').classList.remove('hidden');
+    }
+
+    function closeDevisModal() {
+      document.getElementById('modal-devis').classList.add('hidden');
+    }
+
+    function addLigne(data = null, index = null) {
+      const idx = index !== null ? index : currentLignes.length;
+      if (index === null) {
+        currentLignes.push(data || { designation: '', quantite: 1, unite: 'm²', prix: 0 });
+      }
+      const l = currentLignes[idx];
+      const div = document.createElement('div');
+      div.className = 'bg-slate-50 rounded-lg p-3 space-y-2 ligne-item';
+      div.dataset.idx = idx;
+      div.innerHTML = `
+        <div class="flex gap-2">
+          <input type="text" class="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm" placeholder="Désignation" value="${l.designation || ''}" onchange="updateLigne(${idx}, 'designation', this.value)">
+          <button type="button" onclick="removeLigne(${idx})" class="text-red-500 px-2">✕</button>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-xs text-slate-500">Qté</label>
+            <input type="number" step="0.01" min="0" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" value="${l.quantite || 1}" onchange="updateLigne(${idx}, 'quantite', parseFloat(this.value)||0)">
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">Unité</label>
+            <select class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" onchange="updateLigne(${idx}, 'unite', this.value)">
+              ${['m²','m³','ml','u','h','j','forfait'].map(u => `<option value="${u}" ${l.unite===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">Prix HT</label>
+            <input type="number" step="0.01" min="0" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" value="${l.prix || 0}" onchange="updateLigne(${idx}, 'prix', parseFloat(this.value)||0)">
+          </div>
+        </div>
+        <div class="text-right text-sm font-medium text-slate-600">
+          Total : <span class="ligne-total">${formatEuro((l.quantite||0)*(l.prix||0))}</span>
+        </div>
+      `;
+      document.getElementById('lignes-container').appendChild(div);
+    }
+
+    function updateLigne(idx, field, value) {
+      currentLignes[idx][field] = value;
+      const total = (currentLignes[idx].quantite || 0) * (currentLignes[idx].prix || 0);
+      const el = document.querySelector(`.ligne-item[data-idx="${idx}"] .ligne-total`);
+      if (el) el.textContent = formatEuro(total);
+      calcTotals();
+    }
+
+    function removeLigne(idx) {
+      currentLignes.splice(idx, 1);
+      document.getElementById('lignes-container').innerHTML = '';
+      currentLignes.forEach((l, i) => addLigne(l, i));
+      calcTotals();
+    }
+
+    function calcTotals() {
+      const ht = currentLignes.reduce((s, l) => s + (l.quantite || 0) * (l.prix || 0), 0);
+      const tva = ht * 0.20;
+      const ttc = ht + tva;
+      document.getElementById('total-ht').textContent = formatEuro(ht);
+      document.getElementById('total-tva').textContent = formatEuro(tva);
+      document.getElementById('total-ttc').textContent = formatEuro(ttc);
+    }
+
+    async function saveDevis(status) {
+      const clientId = document.getElementById('devis-client').value;
+      if (!clientId) {
+        showToast('Sélectionnez un client');
+        return;
+      }
+      if (currentLignes.length === 0 || currentLignes.every(l => !l.designation)) {
+        showToast('Ajoutez au moins une ligne');
+        return;
+      }
+
+      const ht = currentLignes.reduce((s, l) => s + (l.quantite || 0) * (l.prix || 0), 0);
+      const tva = ht * 0.20;
+      const ttc = ht + tva;
+      const id = document.getElementById('devis-id').value;
+
+      const data = {
+        clientId: Number(clientId),
+        date: document.getElementById('devis-date').value,
+        objet: document.getElementById('devis-objet').value,
+        notes: document.getElementById('devis-notes').value,
+        lignes: currentLignes.filter(l => l.designation),
+        totalHT: ht,
+        totalTVA: tva,
+        totalTTC: ttc,
+        status: status,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (id) {
+        data.id = Number(id);
+        const existing = await getById('devis', id);
+        data.numero = existing?.numero || 'D-' + id;
+        data.createdAt = existing?.createdAt;
+      } else {
+        data.createdAt = new Date().toISOString();
+        data.numero = 'D-' + Date.now().toString().slice(-6);
+      }
+
+      await put('devis', data);
+      closeDevisModal();
+      showToast(id ? 'Devis mis à jour' : 'Devis créé');
+      await refreshAll();
+    }
+
+    async function editDevis(id) {
+      openDevisModal(id);
+    }
+
+    async function deleteDevis(id) {
+      if (!confirm('Supprimer ce devis ?')) return;
+      await remove('devis', id);
+      showToast('Devis supprimé');
+      await refreshAll();
+    }
+
+    async function changeStatus(id) {
+      const d = await getById('devis', id);
+      if (!d) return;
+      const statuses = ['brouillon', 'envoye', 'accepte', 'refuse'];
+      const current = statuses.indexOf(d.status);
+      const next = statuses[(current + 1) % statuses.length];
+      d.status = next;
+      await put('devis', d);
+      showToast('Statut → ' + next);
+      await refreshAll();
+    }
+
+    async function convertToFacture(id) {
+      const d = await getById('devis', id);
+      if (!d) return;
+      if (!confirm('Transformer ce devis en facture ?')) return;
+
+      const facture = {
+        devisId: d.id,
+        clientId: d.clientId,
+        date: new Date().toISOString().slice(0, 10),
+        objet: d.objet,
+        notes: d.notes,
+        lignes: d.lignes,
+        totalHT: d.totalHT,
+        totalTVA: d.totalTVA,
+        totalTTC: d.totalTTC,
+        numero: 'F-' + Date.now().toString().slice(-6),
+        createdAt: new Date().toISOString()
+      };
+      await put('factures', facture);
+      d.status = 'facture';
+      await put('devis', d);
+      showToast('Facture créée !');
+      await refreshAll();
+      showPage('factures');
+    }
+
+    // ==================== FACTURES ====================
+    async function renderFacturesList() {
+      const factures = await getAll('factures');
+      factures.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const clients = await getAll('clients');
+      const clientMap = Object.fromEntries(clients.map(c => [c.id, c.nom]));
+
+      const container = document.getElementById('factures-list');
+      if (factures.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-center py-8">Aucune facture.<br>Transformez un devis accepté en facture.</p>';
+        return;
+      }
+      container.innerHTML = factures.map(f => `
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="font-semibold">${f.numero}</span>
+              <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Facture</span>
+            </div>
+            <p class="text-sm text-slate-600">${clientMap[f.clientId] || 'Client'} · ${f.objet || ''}</p>
+            <p class="text-xs text-slate-400">${formatDate(f.date)}</p>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <p class="font-bold">${formatEuro(f.totalTTC)}</p>
+            <button onclick="generatePDF(${f.id}, 'facture')" class="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded mt-1">PDF</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ==================== CLIENTS ====================
+    async function renderClientsList() {
+      const clients = await getAll('clients');
+      clients.sort((a, b) => a.nom.localeCompare(b.nom));
+      const container = document.getElementById('clients-list');
+      if (clients.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-center py-8">Aucun client.<br>Ajoutez votre premier client.</p>';
+        return;
+      }
+      container.innerHTML = clients.map(c => `
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1" onclick="editClient(${c.id})">
+            <p class="font-semibold">${c.nom}</p>
+            <p class="text-sm text-slate-600">${[c.adresse, c.cp, c.ville].filter(Boolean).join(', ')}</p>
+            <p class="text-xs text-slate-400">${c.tel || ''} ${c.email || ''}</p>
+          </div>
+          <button onclick="deleteClient(${c.id})" class="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">Suppr.</button>
+        </div>
+      `).join('');
+    }
+
+    function openClientModal(id = null) {
+      document.getElementById('client-id').value = id || '';
+      document.getElementById('client-modal-title').textContent = id ? 'Modifier le client' : 'Nouveau client';
+      document.getElementById('client-nom').value = '';
+      document.getElementById('client-adresse').value = '';
+      document.getElementById('client-cp').value = '';
+      document.getElementById('client-ville').value = '';
+      document.getElementById('client-tel').value = '';
+      document.getElementById('client-email').value = '';
+      if (id) {
+        getById('clients', id).then(c => {
+          if (c) {
+            document.getElementById('client-nom').value = c.nom || '';
+            document.getElementById('client-adresse').value = c.adresse || '';
+            document.getElementById('client-cp').value = c.cp || '';
+            document.getElementById('client-ville').value = c.ville || '';
+            document.getElementById('client-tel').value = c.tel || '';
+            document.getElementById('client-email').value = c.email || '';
+          }
+        });
+      }
+      document.getElementById('modal-client').classList.remove('hidden');
+    }
+
+    function closeClientModal() {
+      document.getElementById('modal-client').classList.add('hidden');
+    }
+
+    async function saveClient() {
+      const nom = document.getElementById('client-nom').value.trim();
+      if (!nom) {
+        showToast('Le nom est obligatoire');
+        return;
+      }
+      const id = document.getElementById('client-id').value;
+      const data = {
+        nom,
+        adresse: document.getElementById('client-adresse').value,
+        cp: document.getElementById('client-cp').value,
+        ville: document.getElementById('client-ville').value,
+        tel: document.getElementById('client-tel').value,
+        email: document.getElementById('client-email').value
+      };
+      if (id) data.id = Number(id);
+      await put('clients', data);
+      closeClientModal();
+      showToast(id ? 'Client mis à jour' : 'Client ajouté');
+      await renderClientsList();
+      // Refresh client select if open
+      if (!document.getElementById('modal-devis').classList.contains('hidden')) {
+        const clients = await getAll('clients');
+        const select = document.getElementById('devis-client');
+        const current = select.value;
+        select.innerHTML = '<option value="">Sélectionner un client</option>' +
+          clients.map(c => `<option value="${c.id}">${c.nom}</option>`).join('');
+        select.value = current;
+      }
+    }
+
+    async function editClient(id) {
+      openClientModal(id);
+    }
+
+    async function deleteClient(id) {
+      if (!confirm('Supprimer ce client ?')) return;
+      await remove('clients', id);
+      showToast('Client supprimé');
+      await renderClientsList();
+    }
+
+    // ==================== PRESTATIONS ====================
+    async function renderPrestationsList() {
+      const prestations = await getAll('prestations');
+      const container = document.getElementById('prestations-list');
+      if (prestations.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-center py-8">Aucune prestation.</p>';
+        return;
+      }
+      container.innerHTML = prestations.map(p => `
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1" onclick="editPrestation(${p.id})">
+            <p class="font-semibold">${p.nom}</p>
+            <p class="text-sm text-slate-600">${formatEuro(p.prix)} / ${p.unite}</p>
+          </div>
+          <div class="flex gap-1">
+            <button onclick="usePrestation(${p.id})" class="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 px-2 py-1 rounded">Utiliser</button>
+            <button onclick="deletePrestation(${p.id})" class="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">Suppr.</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openPrestationModal(id = null) {
+      document.getElementById('prestation-id').value = id || '';
+      document.getElementById('prestation-modal-title').textContent = id ? 'Modifier la prestation' : 'Nouvelle prestation';
+      document.getElementById('prestation-nom').value = '';
+      document.getElementById('prestation-unite').value = 'm²';
+      document.getElementById('prestation-prix').value = '';
+      if (id) {
+        getById('prestations', id).then(p => {
+          if (p) {
+            document.getElementById('prestation-nom').value = p.nom || '';
+            document.getElementById('prestation-unite').value = p.unite || 'm²';
+            document.getElementById('prestation-prix').value = p.prix || '';
+          }
+        });
+      }
+      document.getElementById('modal-prestation').classList.remove('hidden');
+    }
+
+    function closePrestationModal() {
+      document.getElementById('modal-prestation').classList.add('hidden');
+    }
+
+    async function savePrestation() {
+      const nom = document.getElementById('prestation-nom').value.trim();
+      if (!nom) {
+        showToast('La désignation est obligatoire');
+        return;
+      }
+      const id = document.getElementById('prestation-id').value;
+      const data = {
+        nom,
+        unite: document.getElementById('prestation-unite').value,
+        prix: parseFloat(document.getElementById('prestation-prix').value) || 0
+      };
+      if (id) data.id = Number(id);
+      await put('prestations', data);
+      closePrestationModal();
+      showToast(id ? 'Prestation mise à jour' : 'Prestation ajoutée');
+      await renderPrestationsList();
+    }
+
+    async function editPrestation(id) {
+      openPrestationModal(id);
+    }
+
+    async function deletePrestation(id) {
+      if (!confirm('Supprimer cette prestation ?')) return;
+      await remove('prestations', id);
+      showToast('Prestation supprimée');
+      await renderPrestationsList();
+    }
+
+    async function usePrestation(id) {
+      const p = await getById('prestations', id);
+      if (!p) return;
+      // Open devis modal and add the line
+      if (document.getElementById('modal-devis').classList.contains('hidden')) {
+        await openDevisModal();
+      }
+      currentLignes.push({ designation: p.nom, quantite: 1, unite: p.unite, prix: p.prix });
+      document.getElementById('lignes-container').innerHTML = '';
+      currentLignes.forEach((l, i) => addLigne(l, i));
+      calcTotals();
+      showToast('Prestation ajoutée au devis');
+      showPage('devis');
+    }
+
+    // ==================== SETTINGS ====================
+    let pendingLogo = null;
+
+    async function showSettings() {
+      const s = await getById('settings', 'company') || DEFAULT_SETTINGS;
+      document.getElementById('set-nom').value = s.nom || '';
+      document.getElementById('set-adresse').value = s.adresse || '';
+      document.getElementById('set-cp').value = s.cp || '';
+      document.getElementById('set-ville').value = s.ville || '';
+      document.getElementById('set-siret').value = s.siret || '';
+      document.getElementById('set-tel').value = s.tel || '';
+      document.getElementById('set-email').value = s.email || '';
+      document.getElementById('set-couleur').value = s.couleur || '#ea580c';
+      pendingLogo = s.logo || null;
+      if (s.logo) {
+        document.getElementById('logo-preview').classList.remove('hidden');
+        document.getElementById('logo-img').src = s.logo;
+      } else {
+        document.getElementById('logo-preview').classList.add('hidden');
+        document.getElementById('logo-img').src = '';
+      }
+      document.getElementById('set-logo').value = '';
+      document.getElementById('modal-settings').classList.remove('hidden');
+    }
+
+    function closeSettings() {
+      document.getElementById('modal-settings').classList.add('hidden');
+    }
+
+    document.getElementById('set-logo').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 500000) {
+        showToast('Logo trop lourd (max 500 Ko)');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        pendingLogo = ev.target.result;
+        document.getElementById('logo-preview').classList.remove('hidden');
+        document.getElementById('logo-img').src = pendingLogo;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function removeLogo() {
+      pendingLogo = null;
+      document.getElementById('logo-preview').classList.add('hidden');
+      document.getElementById('logo-img').src = '';
+      document.getElementById('set-logo').value = '';
+    }
+
+    async function saveSettings() {
+      const nom = document.getElementById('set-nom').value.trim();
+      if (!nom) {
+        showToast('Le nom de l\'entreprise est obligatoire');
+        return;
+      }
+      const data = {
+        key: 'company',
+        nom,
+        adresse: document.getElementById('set-adresse').value,
+        cp: document.getElementById('set-cp').value,
+        ville: document.getElementById('set-ville').value,
+        siret: document.getElementById('set-siret').value,
+        tel: document.getElementById('set-tel').value,
+        email: document.getElementById('set-email').value,
+        couleur: document.getElementById('set-couleur').value || '#ea580c',
+        logo: pendingLogo
+      };
+      await put('settings', data);
+      document.getElementById('company-name-header').textContent = data.nom;
+      closeSettings();
+      showToast('Paramètres enregistrés');
+    }
+
+    // ==================== PDF ====================
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : [234, 88, 12];
+    }
+
+    async function buildPDF(item, client, settings, isFacture = false) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const color = hexToRgb(settings.couleur || '#ea580c');
+
+      let y = 20;
+
+      // Logo
+      if (settings.logo) {
+        try {
+          doc.addImage(settings.logo, 'JPEG', 14, 12, 28, 18);
+          y = 35;
+        } catch (e) {
+          // ignore logo error
+        }
+      }
+
+      // Header company
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(settings.nom || 'Mon Entreprise', settings.logo ? 48 : 14, settings.logo ? 20 : 20);
+
+      doc.setTextColor(80);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      let infoY = settings.logo ? 26 : 26;
+      if (settings.adresse) { doc.text(settings.adresse, settings.logo ? 48 : 14, infoY); infoY += 4.5; }
+      if (settings.cp || settings.ville) { doc.text(`${settings.cp || ''} ${settings.ville || ''}`.trim(), settings.logo ? 48 : 14, infoY); infoY += 4.5; }
+      if (settings.tel) { doc.text(`Tél : ${settings.tel}`, settings.logo ? 48 : 14, infoY); infoY += 4.5; }
+      if (settings.email) { doc.text(settings.email, settings.logo ? 48 : 14, infoY); infoY += 4.5; }
+      if (settings.siret) { doc.text(`SIRET : ${settings.siret}`, settings.logo ? 48 : 14, infoY); infoY += 4.5; }
+
+      // Title right
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(color[0], color[1], color[2]);
+      const title = isFacture ? 'FACTURE' : 'DEVIS';
+      doc.text(title, pageWidth - 14, 20, { align: 'right' });
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(60);
+      doc.text(`N° ${item.numero || '—'}`, pageWidth - 14, 28, { align: 'right' });
+      doc.text(`Date : ${formatDate(item.date)}`, pageWidth - 14, 34, { align: 'right' });
+
+      // Client
+      y = Math.max(infoY, 48) + 6;
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.rect(14, y - 4, 2, 12, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30);
+      doc.setFontSize(10);
+      doc.text('CLIENT', 20, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      y += 6;
+      if (client) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(client.nom || '', 20, y); y += 5;
+        doc.setFont('helvetica', 'normal');
+        if (client.adresse) { doc.text(client.adresse, 20, y); y += 4.5; }
+        if (client.cp || client.ville) { doc.text(`${client.cp || ''} ${client.ville || ''}`.trim(), 20, y); y += 4.5; }
+        if (client.tel) { doc.text(`Tél : ${client.tel}`, 20, y); y += 4.5; }
+        if (client.email) { doc.text(client.email, 20, y); y += 4.5; }
+      }
+
+      if (item.objet) {
+        y += 4;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Objet : ', 14, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(item.objet, 32, y);
+        y += 8;
+      } else {
+        y += 6;
+      }
+
+      // Table
+      const tableData = (item.lignes || []).map(l => [
+        l.designation || '',
+        String(l.quantite || 0),
+        l.unite || '',
+        formatEuro(l.prix),
+        formatEuro((l.quantite || 0) * (l.prix || 0))
+      ]);
+
+      doc.autoTable({
+        startY: y,
+        head: [['Désignation', 'Qté', 'Unité', 'Prix HT', 'Total HT']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: color, textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: {
+          0: { cellWidth: 78 },
+          1: { cellWidth: 18, halign: 'right' },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 30, halign: 'right' },
+          4: { cellWidth: 30, halign: 'right' }
+        }
+      });
+
+      let finalY = doc.lastAutoTable.finalY + 12;
+
+      // Totals box
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(pageWidth - 80, finalY - 4, 66, 28, 2, 2, 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(60);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Total HT : ${formatEuro(item.totalHT)}`, pageWidth - 14, finalY + 4, { align: 'right' });
+      doc.text(`TVA 20 % : ${formatEuro(item.totalTVA)}`, pageWidth - 14, finalY + 11, { align: 'right' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(`Total TTC : ${formatEuro(item.totalTTC)}`, pageWidth - 14, finalY + 20, { align: 'right' });
+
+      // Notes
+      if (item.notes) {
+        finalY += 38;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        const splitNotes = doc.splitTextToSize(item.notes, pageWidth - 28);
+        doc.text(splitNotes, 14, finalY);
+      }
+
+      // Footer
+      doc.setFontSize(7);
+      doc.setTextColor(160);
+      doc.text('Document généré par Devis Maçon', pageWidth / 2, 287, { align: 'center' });
+
+      return doc;
+    }
+
+    async function generatePDF(id, type) {
+      const isFacture = type === 'facture';
+      const item = isFacture ? await getById('factures', id) : await getById('devis', id);
+      if (!item) return;
+      const client = await getById('clients', item.clientId);
+      const settings = await getById('settings', 'company') || DEFAULT_SETTINGS;
+      const doc = await buildPDF(item, client, settings, isFacture);
+      doc.save(`${item.numero || type}.pdf`);
+      showToast('PDF téléchargé');
+    }
+
+    // Récupère les données du formulaire en cours
+    async function getCurrentFormData() {
+      const clientId = document.getElementById('devis-client').value;
+      if (!clientId) {
+        showToast('Sélectionnez un client d\'abord');
+        return null;
+      }
+      const lignes = currentLignes.filter(l => l.designation);
+      if (lignes.length === 0) {
+        showToast('Ajoutez au moins une ligne');
+        return null;
+      }
+      const ht = lignes.reduce((s, l) => s + (l.quantite || 0) * (l.prix || 0), 0);
+      const tva = ht * 0.20;
+      const ttc = ht + tva;
+      const id = document.getElementById('devis-id').value;
+      let numero = 'Aperçu';
+      if (id) {
+        const existing = await getById('devis', id);
+        numero = existing?.numero || 'D-' + id;
+      }
+      return {
+        clientId: Number(clientId),
+        date: document.getElementById('devis-date').value,
+        objet: document.getElementById('devis-objet').value,
+        notes: document.getElementById('devis-notes').value,
+        lignes,
+        totalHT: ht,
+        totalTVA: tva,
+        totalTTC: ttc,
+        numero
+      };
+    }
+
+    async function previewPDF() {
+      const item = await getCurrentFormData();
+      if (!item) return;
+      const client = await getById('clients', item.clientId);
+      const settings = await getById('settings', 'company') || DEFAULT_SETTINGS;
+      const doc = await buildPDF(item, client, settings, false);
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      showToast('Aperçu ouvert');
+    }
+
+    async function downloadCurrentPDF() {
+      const item = await getCurrentFormData();
+      if (!item) return;
+      const client = await getById('clients', item.clientId);
+      const settings = await getById('settings', 'company') || DEFAULT_SETTINGS;
+      const doc = await buildPDF(item, client, settings, false);
+      doc.save(`${item.numero || 'devis'}.pdf`);
+      showToast('PDF téléchargé');
+    }
+
+    // ==================== START ====================
+    initApp();
+  </script>
+</body>
+</html>
